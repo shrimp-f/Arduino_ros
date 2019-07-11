@@ -14,7 +14,7 @@
 #define Kd 0.0005
 #define PID_SCALE 40
 
-#define SERIAL
+#define _SERIAL
 #define LOOP_DELAY 200
 
 //モーター制御まわり
@@ -37,6 +37,7 @@ const float wheel_circumference = 810;//mm 円周
 const int reset_msec = 100;//msec,timer割り込みの周期
 float vel_mag = 1000./float(reset_msec);//magnification//タイヤの速度計算のための係数
 
+long long all_count_R = 0;//とりあえず置く。カウント積算用。オーバーフローするので対策する。
 
 //ROSまわり
 ros::NodeHandle  nh;
@@ -59,6 +60,7 @@ char odom[] = "/odom";
 //AttachInterruptのcallback
 void Rcount(){
   motor_Rvel++;
+  all_count_R++;
 }
 void Lcount(){
   motor_Lvel++;
@@ -124,11 +126,13 @@ void setup()
 //  attachInterrupt(4, Lcount, FALLING);//19pin
   attachInterrupt(5, Lcount, CHANGE);//18pin
 
+  #ifdef SERIAL
   Serial.begin(9600);
+  #endif
 
   preTime = micros();
-  duty_R = 100.0;
-  duty_L = 100.0;
+  duty_R = 0.0;
+  duty_L = 0.0;
 
 }
 
@@ -137,8 +141,8 @@ void loop()
   float target_wheel_Lvel = 1500.;
   float target_wheel_Rvel = 1500.;
 
-  float target_motor_Rvel = 60.;
-  float target_motor_Lvel = 60.;
+  float target_motor_Rvel = 0.;//60. default
+  float target_motor_Lvel = 0.;
   ////// PID //////
   dt = (micros() - preTime) / 1000000;
   preTime = micros();
@@ -190,6 +194,7 @@ void loop()
   #endif
 
   // drive in a circle
+//  /*
   double dx = 0.2;
   double dtheta = 0.18;
   x += cos(theta)*dx*0.1;
@@ -197,7 +202,10 @@ void loop()
   theta += dtheta*0.1;
   if(theta > 3.14)
     theta=-3.14;
-    
+//  */
+
+  //x = all_count_R * 0.01;
+  
   // tf odom->base_link
   t.header.frame_id = odom;
   t.child_frame_id = base_link;
