@@ -1,5 +1,12 @@
 /* 
  * rosserial Planar Odometry Example
+ * 
+ * 自作ロボット用メモ
+ * twist型のcmd_velは
+ * twist.linear.x の最大は0.2m/sが良い。
+ * twist.angular.z はxの値による。
+ * x=0.05のとき、zのmax(安定の)は0.08rad/s
+ * x=0.2のとき、zのmax(安定の)は0.5rad/s
  */
 
 #include <ros.h>
@@ -26,6 +33,10 @@ volatile int motor_Rvel = 0;//motor rotation
 volatile int pre_motor_Rvel = 0;//
 volatile float wheel_Rvel = 0;
 
+volatile double target_motor_Rvel = 0.;//60. default
+volatile double target_motor_Lvel = 0.;    
+
+
 // PID
 float duty_R = 100.;
 float duty_L = 100.;
@@ -37,6 +48,7 @@ const float reduction_ratio = 280;//減速比
 const float wheel_circumference = 0.810;//m 円周
 const double tread = 0.610;//m トレッド幅
 const int reset_msec = 100;//msec,timer割り込みの周期
+const double reset_sec = reset_msec / 1000.;
 //float vel_mag = 1000./float(reset_msec);//magnification//タイヤの速度計算のための係数
 const double encoder_reso = 21.5;//エンコーダー1週あたりのカウントすう 減速比280で1周で約6000回てんだったので。
 
@@ -102,6 +114,17 @@ void reset() {
 
 //subscriberのcallback
 void get_message(const geometry_msgs::Twist& cmd_msg){
+
+  target_motor_Rvel = cmd_msg.linear.x * reset_sec / wheel_circumference * encoder_reso * reduction_ratio;
+  target_motor_Lvel = cmd_msg.linear.x * reset_sec / wheel_circumference * encoder_reso * reduction_ratio;
+
+  //回転するための左右の目標速度差
+  double diff_target = cmd_msg.angular.z * tread * reset_sec / wheel_circumference * encoder_reso * reduction_ratio;
+
+  target_motor_Rvel += diff_target / 2;
+  target_motor_Lvel -= diff_target / 2;
+  
+  /*
   digitalWrite(13,HIGH);
   
   if(cmd_msg.linear.x >= 0){
@@ -125,6 +148,7 @@ void get_message(const geometry_msgs::Twist& cmd_msg){
     analogWrite(45,abs(cmd_msg.angular.z*250));
     delay(1);
   }
+  */
 }
 
 ros::Subscriber<geometry_msgs::Twist> sub("/cabbage1/cmd_vel", get_message);
@@ -164,9 +188,9 @@ void rosprint(double num){
   dtostrf(num,10,6,str1);
   nh.loginfo(str1);
 }
-void rosprint(char *num){
+void rosprint(char *num){//動かん
   char str1[30]={0}; //0で埋める
-  sprintf(str1,"aaaa%s",*num);  
+  sprintf(str1,"%s",*num);  
   nh.loginfo(str1);
 }
 
@@ -205,30 +229,8 @@ void setup()
 
 void loop()
 {  
-//  float target_wheel_Lvel = 1500.;
-//  float target_wheel_Rvel = 1500.;
-  static double target_motor_Rvel = 0.;//60. default
-  static double target_motor_Lvel = 0.;    
-
-  if(all_count_L < 6000000 ){
-    target_motor_Rvel = 90.;//60. default
-    target_motor_Lvel = 90.;    
-  }else{
-    target_motor_Rvel = 0.;//60. default
-    target_motor_Lvel = 0.;    
-    char flag[6];
-    flag[0] = 'f';
-    flag[1] = 'l';
-    flag[2] = 'a';
-    flag[3] = 'g';
-    flag[4] = 'z';
-    flag[5] = '\0';
-//    nh.loginfo(flag);
-  }
-//  rosinfo(all_count_L);
-//  rosinfo(duty_R);
-//  rosinfo(motor_Rvel);
-
+//  target_motor_Rvel = 0.;//60. default
+//  target_motor_Lvel = 0.;    
   
   ////// PID //////
   dt = (micros() - preTime) / 1000000;
@@ -304,21 +306,22 @@ void loop()
   // m/0.1s
   double d_vr = wheel_circumference * pre_motor_Rvel / encoder_reso / reduction_ratio;
   double d_vl = wheel_circumference * pre_motor_Lvel / encoder_reso / reduction_ratio;
+/* 
   char words3[20] = "pre_motor_Rvel";
   nh.loginfo(words3);
-  rosprint(pre_motor_Rvel);
+*/  rosprint(d_vr);
 
   //m
   double d_Lr = d_vr;
   double d_Ll = d_vl;
-
+/*
   char words[6] = "d_vr";
   nh.loginfo(words);
   rosprint(d_vr);
   char words2[6] = "d_vl";
   nh.loginfo(words2);
   rosprint(d_vl);
-
+*/
   double d_L = (d_Lr + d_Ll) * 0.5;
   double d_theta = (d_Lr - d_Ll) / tread;
   double rho = 0; //旋回半径
@@ -334,17 +337,7 @@ void loop()
     x_wo_dis = d_L * cos(theta_wo - 0.5*d_theta);
     y_wo_dis = d_L * sin(theta_wo - 0.5*d_theta);
   }
-/*
-  char flag[6] = "d_Lr";
-  nh.loginfo(flag);
-  rosprint(d_Lr);
-  char flag2[6] = "d_Ll";
-  nh.loginfo(flag2);
-  rosprint(d_Ll);
-  char flag3[6] = "d_L";
-  nh.loginfo(flag3);
-  rosprint(d_L);
-*/
+
   /****************/
 
   
