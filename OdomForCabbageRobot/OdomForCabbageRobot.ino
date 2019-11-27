@@ -6,13 +6,7 @@
  * twist.linear.x の最大は0.2m/sが良い。
  * twist.angular.z はxの値による。
  * x=0.05のとき、zのmax(安定の)は0.08rad/s
- * x=0.2のとき、zのmax(安定の)は0.5rad/s
- */
-
-#include <ros.h>
-#include <ros/time.h>
-#include <tf/tf.h>
-#include <tf/transform_broadcaster.h>
+ * x=0.2のとき、zのmax(安定の)G
 #include <geometry_msgs/Twist.h>
 #include <MsTimer2.h>
 #include <math.h>  /* M_PI */
